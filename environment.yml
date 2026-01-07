@@ -1,0 +1,10 @@
+name: tricomm
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+- python
+- ncbi-genome-download
+- biopython
+- breseq
+- mosdepth
