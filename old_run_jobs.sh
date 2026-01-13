@@ -1,0 +1,12 @@
+breseq -j 1 -r BW25113.gbk -r pOXA48.gbk -r pS2313M_msfGFP.gbk -r pS2313RS_mScarlet.gbk -o out/old_run/LM_KAN0x_191h old_run/LM_KAN0x_191h_S126_R1_001.fastq.gz old_run/LM_KAN0x_191h_S126_R2_001.fastq.gz
+breseq -j 1 -r BW25113.gbk -r pOXA48.gbk -r pS2313M_msfGFP.gbk -r pS2313RS_mScarlet.gbk -o out/old_run/LM_KAN16x_72h old_run/LM_KAN16x_72h_S120_R1_001.fastq.gz old_run/LM_KAN16x_72h_S120_R2_001.fastq.gz
+breseq -j 1 -r BW25113.gbk -r pOXA48.gbk -r pS2313M_msfGFP.gbk -r pS2313RS_mScarlet.gbk -o out/old_run/LM_PVB0x_167h old_run/LM_PVB0x_167h_S123_R1_001.fastq.gz old_run/LM_PVB0x_167h_S123_R2_001.fastq.gz
+breseq -j 1 -r BW25113.gbk -r pOXA48.gbk -r pS2313M_msfGFP.gbk -r pS2313RS_mScarlet.gbk -o out/old_run/LM_PVB16x_72h old_run/LM_PVB16x_72h_S117_R1_001.fastq.gz old_run/LM_PVB16x_72h_S117_R2_001.fastq.gz
+breseq -j 1 -r BW25113.gbk -r pOXA48.gbk -r pS2313M_msfGFP.gbk -r pS2313RS_mScarlet.gbk -o out/old_run/PL_KAN0x_191h old_run/PL_KAN0x_191h_S124_R1_001.fastq.gz old_run/PL_KAN0x_191h_S124_R2_001.fastq.gz
+breseq -j 1 -r BW25113.gbk -r pOXA48.gbk -r pS2313M_msfGFP.gbk -r pS2313RS_mScarlet.gbk -o out/old_run/PL_KAN16x_72h old_run/PL_KAN16x_72h_S118_R1_001.fastq.gz old_run/PL_KAN16x_72h_S118_R2_001.fastq.gz
+breseq -j 1 -r BW25113.gbk -r pOXA48.gbk -r pS2313M_msfGFP.gbk -r pS2313RS_mScarlet.gbk -o out/old_run/PL_PVB0x_167h old_run/PL_PVB0x_167h_S121_R1_001.fastq.gz old_run/PL_PVB0x_167h_S121_R2_001.fastq.gz
+breseq -j 1 -r BW25113.gbk -r pOXA48.gbk -r pS2313M_msfGFP.gbk -r pS2313RS_mScarlet.gbk -o out/old_run/PL_PVB16x_72h old_run/PL_PVB16x_72h_S115_R1_001.fastq.gz old_run/PL_PVB16x_72h_S115_R2_001.fastq.gz
+breseq -j 1 -r BW25113.gbk -r pOXA48.gbk -r pS2313M_msfGFP.gbk -r pS2313RS_mScarlet.gbk -o out/old_run/PM_KAN0x_191h old_run/PM_KAN0x_191h_S125_R1_001.fastq.gz old_run/PM_KAN0x_191h_S125_R2_001.fastq.gz
+breseq -j 1 -r BW25113.gbk -r pOXA48.gbk -r pS2313M_msfGFP.gbk -r pS2313RS_mScarlet.gbk -o out/old_run/PM_KAN16x_72h old_run/PM_KAN16x_72h_S119_R1_001.fastq.gz old_run/PM_KAN16x_72h_S119_R2_001.fastq.gz
+breseq -j 1 -r BW25113.gbk -r pOXA48.gbk -r pS2313M_msfGFP.gbk -r pS2313RS_mScarlet.gbk -o out/old_run/PM_PVB0x_167h old_run/PM_PVB0x_167h_S122_R1_001.fastq.gz old_run/PM_PVB0x_167h_S122_R2_001.fastq.gz
+breseq -j 1 -r BW25113.gbk -r pOXA48.gbk -r pS2313M_msfGFP.gbk -r pS2313RS_mScarlet.gbk -o out/old_run/PM_PVB16x_72h old_run/PM_PVB16x_72h_S116_R1_001.fastq.gz old_run/PM_PVB16x_72h_S116_R2_001.fastq.gz
