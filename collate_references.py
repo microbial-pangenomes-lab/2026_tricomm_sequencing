@@ -21,14 +21,31 @@ POXA48_EXPERIMENT_MAP = {
     'M7': 'TriComm PVB 16x MIC',
 }
 
-PN23_EXPERIMENT_MAP = {
+# The two PN23 replicates use different vial layouts (see pn23.py), so the
+# vial-number -> experiment mapping must be chosen per replicate.
+PN23_EXPERIMENT_MAP_REP1 = {
     'M1': 'TriComm KAN+PN23 2xMIC',
     'M2': 'TriComm KAN no drug',
     'M3': 'TriComm KAN 1xMIC',
     'M4': 'TriComm KAN 2xMIC',
-    'M5': 'TriComm PN23 no drug', 
+    'M5': 'TriComm PN23 no drug',
     'M6': 'TriComm PN23 1xMIC',
     'M7': 'TriComm PN23 2xMIC',
+}
+
+PN23_EXPERIMENT_MAP_REP2 = {
+    'M0': 'TriComm KAN no drug',
+    'M1': 'TriComm PN23 no drug',
+    'M2': 'TriComm KAN 1xMIC',
+    'M3': 'TriComm PN23 1xMIC',
+    'M4': 'TriComm KAN 2xMIC',
+    'M5': 'TriComm PN23 2xMIC',
+}
+
+# Look up the correct PN23 vial map given a replicate folder name.
+PN23_EXPERIMENT_MAPS = {
+    'rep1': PN23_EXPERIMENT_MAP_REP1,
+    'rep2': PN23_EXPERIMENT_MAP_REP2,
 }
 
 
@@ -90,12 +107,18 @@ def extract_experiment_name(sample_name: str, replicate: str) -> str | None:
     
     Differentiates between pOXA48 and PN23 experiments based on the replicate folder.
     
+    The two PN23 replicates use different vial layouts, so the vial map is
+    chosen based on the replicate folder name.
+
     Examples:
         pOXA48_rep1:
             M7_LM_clone1 -> TriComm PVB 16x MIC
             M5_198h -> TriComm PVI 16x MIC
         PN23_rep1:
             M1_PL_clone1 -> TriComm KAN+PN23 2xMIC
+            M4_309h -> TriComm KAN 2xMIC
+        PN23_rep2:
+            M1_PL_clone1 -> TriComm PN23 no drug
             M4_309h -> TriComm KAN 2xMIC
         ancestrals:
             LM1 -> None (ancestral, not a pOXA48 or PN23 sample)
@@ -104,9 +127,14 @@ def extract_experiment_name(sample_name: str, replicate: str) -> str | None:
     match = re.match(r'^(M\d+)_', sample_name)
     if match:
         vial_number = match.group(1)
-        # Use PN23 map for PN23_rep1, pOXA48 map for pOXA48_rep*
+        # Use the PN23 maps for PN23_rep*, pOXA48 map for pOXA48_rep*.
         if replicate.startswith('PN23'):
-            return PN23_EXPERIMENT_MAP.get(vial_number)
+            # Replicate folders are named like 'PN23_rep1' / 'PN23_rep2'.
+            rep_key = replicate.split('_', 1)[1] if '_' in replicate else replicate
+            pn23_map = PN23_EXPERIMENT_MAPS.get(rep_key)
+            if pn23_map is None:
+                return None
+            return pn23_map.get(vial_number)
         else:
             return POXA48_EXPERIMENT_MAP.get(vial_number)
     return None
