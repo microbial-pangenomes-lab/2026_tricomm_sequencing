@@ -281,16 +281,17 @@ def create_visualization(mutations_by_replicon, output_prefix):
     # Parse vial information from output_prefix for title
     vial_title = "Unknown"
     if "ancestrals" in output_prefix:
-        # Format: "Ancestral clone, LM, replicate 1"
-        parts = output_prefix.split('_')
-        if len(parts) >= 2:
-            clone_type = parts[1].upper()  # LM1, LM2, etc.
-            if clone_type.startswith('LM'):
-                vial_title = f"Ancestral clone, LM, replicate {clone_type[2:]}"
-            elif clone_type.startswith('PL'):
-                vial_title = f"Ancestral clone, PL, replicate {clone_type[2:]}"
-            elif clone_type.startswith('PM'):
-                vial_title = f"Ancestral clone, PM, replicate {clone_type[2:]}"
+        # Format: "Ancestral clone, LM, replicate 1" or "Ancestral clone, LM, PVB donor"
+        sample = output_prefix.split('_', 1)[1] if '_' in output_prefix else ''
+        strain = sample[:2].upper()
+        suffix = sample[2:]
+        if strain in ('LM', 'PL', 'PM'):
+            if suffix.isdigit():
+                vial_title = f"Ancestral clone, {strain}, replicate {suffix}"
+            elif suffix.startswith('_'):
+                vial_title = f"Ancestral clone, {strain}, {suffix[1:]} donor"
+            else:
+                vial_title = f"Ancestral clone, {strain}"
     elif not output_prefix.startswith("old_run") and not output_prefix.startswith("test"):
         # Format: "pOXA48, rep1, LM clone1, TriComm KAN no drug" or "PN23, rep1, 309h, ..."
         parts = output_prefix.split('_')
@@ -312,7 +313,7 @@ def create_visualization(mutations_by_replicon, output_prefix):
                 time_info = "clone" + part[-1]
             elif part in ['LM', 'PL', 'PM']:
                 strain_info = part
-            elif part in ['198h', '306h', '309h']:
+            elif re.fullmatch(r'\d+h', part):
                 time_info = part
 
         # Get vial description - use different maps for pOXA48 and PN23
@@ -326,18 +327,35 @@ def create_visualization(mutations_by_replicon, output_prefix):
             'M6': 'TriComm PVB no drug',
             'M7': 'TriComm PVB 16x MIC',
         }
+        # The two PN23 replicates were run with different vial layouts, so the
+        # map has to be chosen per replicate (see collate_references.py and
+        # data/PN23/parsing.ipynb in the 2026_tricomm repository).
         pn23_vial_descriptions = {
-            'M1': 'TriComm KAN+PN23 2xMIC',
-            'M2': 'TriComm KAN no drug',
-            'M3': 'TriComm KAN 1xMIC',
-            'M4': 'TriComm KAN 2xMIC',
-            'M5': 'TriComm PN23 no drug',
-            'M6': 'TriComm PN23 1xMIC',
-            'M7': 'TriComm PN23 2xMIC',
+            'rep1': {
+                'M1': 'TriComm KAN+PN23 2xMIC',
+                'M2': 'TriComm KAN no drug',
+                'M3': 'TriComm KAN 1xMIC',
+                'M4': 'TriComm KAN 2xMIC',
+                'M5': 'TriComm PN23 no drug',
+                'M6': 'TriComm PN23 1xMIC',
+                'M7': 'TriComm PN23 2xMIC',
+            },
+            'rep2': {
+                'M0': 'TriComm KAN no drug',
+                'M1': 'TriComm PN23 no drug',
+                'M2': 'TriComm KAN 1xMIC',
+                'M3': 'TriComm PN23 1xMIC',
+                'M4': 'TriComm KAN 2xMIC',
+                'M5': 'TriComm PN23 2xMIC',
+            },
         }
 
         if strain_name == 'PN23':
-            vial_desc = pn23_vial_descriptions.get(vial_code, "Unknown condition")
+            if rep_info not in pn23_vial_descriptions:
+                raise ValueError(
+                    f"cannot label {output_prefix}: the PN23 vial layout differs "
+                    f"between replicates and no replicate was found in the name")
+            vial_desc = pn23_vial_descriptions[rep_info].get(vial_code, "Unknown condition")
         else:
             vial_desc = poxa48_vial_descriptions.get(vial_code, "Unknown condition")
 
