@@ -4,6 +4,7 @@ breseq -j 1 -r BW25113.gbk -o out/ancestrals/PM1/ /big-storage/marco/reads/20240
 breseq -j 1 -r BW25113.gbk -o out/ancestrals/LM1/ /big-storage/marco/reads/202401_tricomm/X204SC21073225-Z01-F006/01.RawData/LM1/*.fq.gz  
 breseq -j 1 -r BW25113.gbk -o out/ancestrals/LM2/ /big-storage/marco/reads/202401_tricomm/X204SC21073225-Z01-F006/01.RawData/LM2/*.fq.gz
 breseq -j 1 -r BW25113.gbk -o out/ancestrals/PM2/ /big-storage/marco/reads/202401_tricomm/X204SC21073225-Z01-F006/01.RawData/PM2/*.fq.gz
+breseq -p -j 1 -r BW25113.gbk -r pOXA48.gbk -r pS2313M_msfGFP.gbk -r pS2313RS_mScarlet.gbk -o out/ancestrals/LM_PVB /big-storage/marco/reads/20260202_PVB/X208SC26015510-Z01-F001/01.RawData/LM_PVB/LM_PVB_MKDN260002022-1A_23C27HLT4_L2_*.fq.gz
 mosdepth -t 1 out/ancestrals/PL1/coverage out/ancestrals/PL1/data/reference.bam
 mosdepth -t 1 out/ancestrals/PL2/coverage out/ancestrals/PL2/data/reference.bam
 mosdepth -t 1 out/ancestrals/PM1/coverage out/ancestrals/PM1/data/reference.bam
