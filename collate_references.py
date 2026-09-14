@@ -185,7 +185,7 @@ def main():
     
     # Add experiment name column for pOXA48 and PN23 samples
     df['experiment_name'] = df.apply(
-        lambda row: extract_experiment_name(row['sample_name'], row['replicate']), 
+        lambda row: extract_experiment_name(row['sample_name'], row['replicate']),
         axis=1
     )
     
