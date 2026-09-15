@@ -22,12 +22,21 @@ CONDITION_ORDER = [
 ]
 
 CLASS_LABEL = {
-    "candidate": "de novo (candidate)",
+    "candidate": "de novo",
     "ancestral background": "present in ancestor",
     "masked repeat/prophage": "masked (cryptic prophage / repeat)",
     "absent replicon": "replicon absent from sample",
     "engineered knockout": "engineered auxotrophy knockout",
 }
+
+
+def sort_table(df: pd.DataFrame, *extra: str) -> pd.DataFrame:
+    """Order rows by experiment (ancestral, PN23, pOXA48), vial, replicate and
+    sample, then by any extra columns."""
+    cols = ["Experiment", "Vial", "Replicate", "Sample", *extra]
+    return df.sort_values(
+        cols, key=lambda c: c.str.lower() if c.name == "Experiment" else c
+    )
 
 
 def change_string(row) -> str:
@@ -95,7 +104,24 @@ def main() -> None:
     samples = samples[keep].copy()
     for col in keep[-4:] + ["Chromosome coverage (x)"]:
         samples[col] = samples[col].astype(float).round(2)
-    samples = samples.sort_values(["Experiment", "Replicate", "Sample"])
+
+    # The auxotrophy-deletion genotype is only reported for a population when
+    # the deletion pattern matches a single strain (i.e. the population is
+    # effectively clonal); a mixed community gives an ambiguous pattern that is
+    # not a genotype call, so those cells are left empty.
+    population = samples["Sample type"].eq("population")
+    ambiguous = samples["Genotype from auxotrophy deletions"].eq("ambiguous")
+    samples.loc[population & ambiguous,
+                ["Deleted auxotrophy genes", "Genotype from auxotrophy deletions"]] = ""
+    # Identity checks against the declared strain are only meaningful for the
+    # evolved clones: leave them empty for ancestors and populations.
+    unchecked = population | samples["Experiment"].eq("ancestral")
+    samples.loc[unchecked, ["Auxotrophy genotype check",
+                            "Fluorescent marker from coverage"]] = ""
+    samples["Marker plasmid check"] = samples["Marker plasmid check"].replace(
+        "not applicable", "N/A"
+    )
+    samples = sort_table(samples)
 
     # ----------------------------------------------------------- mutation sheet
     m = mut[mut["call_class"] != "absent replicon"].copy()
@@ -120,24 +146,12 @@ def main() -> None:
          "Strain", "Time (h)", "Replicon", "Position", "Type", "Change",
          "Gene", "Amino acid change", "Gene position", "Category", "Product",
          "Detection", "Frequency", "Class", "Ancestor carrying this call"]
-    ].sort_values(["Experiment", "Replicate", "Sample", "Replicon", "Position"])
-
-    # Sites called only by the polymorphism-mode caller, in many unrelated
-    # samples, and never fixed in a clone: these track breseq's low-frequency
-    # noise (homopolymers, prophage boundaries) rather than real variants.
-    cand = table[table["Class"] == "de novo (candidate)"]
-    stats = cand.groupby(["Replicon", "Position", "Change"]).agg(
-        n=("Sample", "nunique"),
-        n_consensus=("Detection", lambda s: (s == "consensus").sum()),
-    )
-    noisy = set(stats[(stats["n"] >= 8) & (stats["n_consensus"] == 0)].index)
-    table["Low-confidence recurrent call"] = [
-        "yes" if k in noisy else "no"
-        for k in zip(table["Replicon"], table["Position"], table["Change"])
     ]
+    table = sort_table(table, "Replicon", "Position")
 
-    # kept in the de novo table at the authors' request; the flag column marks them
-    denovo = table[table["Class"] == "de novo (candidate)"]
+    # all de novo calls are kept, including sites seen only at low frequency in
+    # many unrelated samples; the per-site sample counts are in table S4
+    denovo = table[table["Class"] == "de novo"]
 
     # --------------------------------------------------- per-gene parallelism
     par = (
@@ -165,7 +179,6 @@ def main() -> None:
     print(f"all calls (excl. absent replicons): {len(table)}")
     print(f"de novo candidate calls: {len(denovo)}")
     print(f"distinct de novo mutations: {len(par)}")
-    print(f"low-confidence recurrent sites flagged (kept): {len(noisy)}")
     print("\nde novo calls per class of sample:")
     print(denovo.groupby(["Experiment", "Sample type"]).size().to_string())
 

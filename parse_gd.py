@@ -98,6 +98,16 @@ def parse_gd(path: Path) -> tuple[list[dict], list[dict]]:
                         row["end"] = int(parts[5])
                     except (ValueError, IndexError):
                         continue
+                elif kind == "JC":
+                    # new junction: (seq_id, position, strand) for both sides
+                    try:
+                        row["side_1_position"] = int(parts[4])
+                        row["side_1_strand"] = int(parts[5])
+                        row["side_2_seq_id"] = parts[6]
+                        row["side_2_position"] = int(parts[7])
+                        row["side_2_strand"] = int(parts[8])
+                    except (ValueError, IndexError):
+                        continue
                 row.update(attrs)
                 evidence.append(row)
     return mutations, evidence

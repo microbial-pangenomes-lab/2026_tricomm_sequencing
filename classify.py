@@ -49,6 +49,24 @@ AMR_LOCI = {
 
 PLASMID_OF_STRAIN = {"PL": "pS2313M_msfGFP", "PM": "pS2313RS_mScarlet", "LM": None}
 
+# The PVB donor carries a pOXA-48 variant lacking the 12.3 kb conjugative
+# transfer region downstream of the IS1 element (ssb, mobA, traI and the type IV
+# secretion genes), whereas PVI conditions use the intact plasmid. breseq only
+# reports this deletion as an unassigned new junction (33164|45514) plus missing
+# coverage, because the left boundary sits in the IS1 repeat, so it is
+# reconstructed here from the junction evidence, checked against the expected
+# plasmid variant, and reported as a DEL call.
+PVB_DELETION = {
+    "replicon": "NZ_MT441554",
+    "junction_left": 33_164,   # last retained base before the deletion
+    "junction_right": 45_514,  # first retained base after the deletion
+    "gene_name": "[IFA14_RS00230]\u2013[IFA14_RS00325]",
+    "gene_product": "pOXA-48 conjugative transfer region: ssb, mobA, traI, "
+                    "DotD/TraH lipoprotein, type IV secretion system genes",
+}
+PVB_JUNCTION_TOLERANCE = 5  # bp
+PVB_MIN_FREQUENCY = 0.5     # junction frequency needed to call the variant "deleted"
+
 # Samples dropped before any analysis:
 #  - the pilot "old_run" sequencing batch
 #  - the mixed KAN+PVI and KAN+PN23 communities, not part of the reported design
@@ -70,6 +88,45 @@ def in_masked(replicon: str, position) -> str | None:
     for name, start, end in MASKED_REGIONS:
         if start <= position <= end:
             return name
+    return None
+
+
+def pvb_deletion_evidence(ev: pd.DataFrame, cov: pd.DataFrame) -> pd.DataFrame:
+    """Per-sample evidence for the PVB transfer-region deletion of pOXA-48.
+
+    Returns one row per sample mapped against pOXA-48 with the frequency of the
+    diagnostic junction (0 when the junction is absent) and whether breseq also
+    reported missing coverage over the region."""
+    d = PVB_DELETION
+    jc = ev[(ev["kind"] == "JC") & (ev["replicon"] == d["replicon"])].copy()
+    jc = jc[jc["side_2_seq_id"].eq(d["replicon"])]
+    jc = jc[
+        (jc["side_1_position"] - d["junction_left"]).abs().le(PVB_JUNCTION_TOLERANCE)
+        & (jc["side_2_position"] - d["junction_right"]).abs().le(PVB_JUNCTION_TOLERANCE)
+    ]
+    if "reject" in jc:
+        jc = jc[jc["reject"].isna()]
+    jc["freq"] = pd.to_numeric(jc["frequency"], errors="coerce").fillna(1.0)
+    freq = jc.groupby("sample_id")["freq"].max()
+
+    mc = ev[(ev["kind"] == "MC") & (ev["replicon"] == d["replicon"])]
+    mc = mc[(mc["start"] <= d["junction_left"] + 1_000) & (mc["end"] >= d["junction_right"] - 100)]
+    mc_support = set(mc["sample_id"])
+
+    mapped = sorted(set(cov.loc[cov["replicon_id"] == d["replicon"], "sample_id"]))
+    return pd.DataFrame({
+        "sample_id": mapped,
+        "pOXA48_tra_junction_frequency": [float(freq.get(s, 0.0)) for s in mapped],
+        "pOXA48_tra_missing_coverage": [s in mc_support for s in mapped],
+    })
+
+
+def expected_pOXA48_variant(condition) -> str | None:
+    cond = str(condition)
+    if "PVB" in cond:
+        return "deleted"
+    if "PVI" in cond:
+        return "intact"
     return None
 
 
@@ -188,9 +245,67 @@ def main() -> None:
         )
     ]
 
+    # ------------------------------------------ pOXA-48 variant (PVI vs PVB)
+    # whole-replicon deletions mark samples in which the plasmid is absent
+    absent_pOXA48 = set(mut.loc[
+        (mut["kind"] == "DEL") & (mut["position"] == 1)
+        & (mut["mutation_category"] == "large_deletion")
+        & (mut["replicon"] == PVB_DELETION["replicon"]), "sample_id"])
+    pvb = pvb_deletion_evidence(ev, cov)
+    wide = wide.merge(pvb, on="sample_id", how="left")
+
+    def tra_region(row):
+        if pd.isna(row["pOXA48_tra_junction_frequency"]):
+            return "not mapped"
+        if row["sample_id"] in absent_pOXA48:
+            return "plasmid absent"
+        f = row["pOXA48_tra_junction_frequency"]
+        if f == 0:
+            return "intact"
+        return "deleted" if f >= 0.99 else f"deleted ({f:.0%})"
+
+    wide["pOXA48_tra_region"] = wide.apply(tra_region, axis=1)
+    wide["pOXA48_expected_variant"] = wide["condition"].map(expected_pOXA48_variant)
+
+    def variant_check(row):
+        exp = row["pOXA48_expected_variant"]
+        if exp is None or row["pOXA48_tra_region"] in ("not mapped", "plasmid absent"):
+            return "not applicable"
+        f = row["pOXA48_tra_junction_frequency"]
+        observed = "deleted" if f >= PVB_MIN_FREQUENCY else "intact"
+        return "match" if observed == exp else "MISMATCH"
+
+    wide["pOXA48_variant_check"] = wide.apply(variant_check, axis=1)
+    wide["identity_ok"] &= wide["pOXA48_variant_check"].ne("MISMATCH")
+
     wide.to_csv(OUT / "sample_identity.tsv", sep="\t", index=False)
 
     # ------------------------------------------------------ mutation filtering
+    # add the PVB transfer-region deletion as an explicit DEL call in every
+    # sample whose reads support the diagnostic junction
+    d = PVB_DELETION
+    del_start, del_end = d["junction_left"] + 1, d["junction_right"] - 1
+    carriers_pvb = pvb[pvb["pOXA48_tra_junction_frequency"] > 0]
+    sample_meta = cov.drop_duplicates("sample_id").set_index("sample_id", drop=False)
+    mode = ev.drop_duplicates("sample_id").set_index("sample_id")["polymorphism_mode"]
+    pvb_rows = []
+    for sid, f in zip(carriers_pvb["sample_id"], carriers_pvb["pOXA48_tra_junction_frequency"]):
+        m = sample_meta.loc[sid]
+        pvb_rows.append({
+            **{c: m[c] for c in meta_cols}, "polymorphism_mode": bool(mode[sid]),
+            "kind": "DEL", "gd_id": "PVB", "replicon": d["replicon"],
+            "replicon_name": "pOXA48", "position": del_start,
+            "detail": str(del_end - del_start + 1), "frequency": f,
+            "mutation_category": "large_deletion",
+            "position_start": del_start, "position_end": del_end,
+            "gene_name": d["gene_name"], "gene_product": d["gene_product"],
+        })
+    mut["is_pvb_deletion"] = False
+    if pvb_rows:
+        extra = pd.DataFrame(pvb_rows)
+        extra["is_pvb_deletion"] = True
+        mut = pd.concat([mut, extra], ignore_index=True)
+
     mut["masked_region"] = [in_masked(r, p) for r, p in zip(mut["replicon"], mut["position"])]
     # whole-replicon "deletions" are simply an absent plasmid, not a mutation
     mut["is_absent_replicon"] = (
@@ -207,6 +322,9 @@ def main() -> None:
     background |= set(zip(anc["replicon"], anc["position"], anc["detail"]))
     keys = list(zip(mut["replicon"], mut["position"], mut["detail"]))
     mut["is_background"] = [k in background for k in keys]
+    # the transfer-region deletion defines the PVB plasmid variant: it is carried
+    # by the LM_PVB donor but must still be reported in the evolved samples
+    mut.loc[mut["is_pvb_deletion"], "is_background"] = False
 
     # record which ancestor(s) carry each background call, so that donor-specific
     # variants can be told apart from variants of the plasmid-free parents
@@ -239,9 +357,10 @@ def main() -> None:
     mut.loc[mut["masked_region"].notna() & ~mut["is_knockout"], "call_class"] = "masked repeat/prophage"
     mut.loc[mut["is_background"] & mut["call_class"].eq("candidate"), "call_class"] = "ancestral background"
     # a call seen in an ancestral clone is by definition not a de novo mutation of
-    # that clone, whatever its frequency there
-    mut.loc[mut["run"].eq("ancestrals") & mut["call_class"].eq("candidate"),
-            "call_class"] = "ancestral background"
+    # that clone, whatever its frequency there; the PVB transfer-region deletion
+    # is the exception, reported as de novo in the donor as well
+    mut.loc[mut["run"].eq("ancestrals") & mut["call_class"].eq("candidate")
+            & ~mut["is_pvb_deletion"], "call_class"] = "ancestral background"
 
     mut.to_csv(OUT / "mutations_classified.tsv", sep="\t", index=False)
 
@@ -259,6 +378,12 @@ def main() -> None:
     print(bad[["sample_id", "declared_strain", "genotype_strain", "deleted_aux_genes",
                "observed_marker", "msfGFP_copy_number", "mScarlet_copy_number"]].round(2).to_string(index=False)
           if len(bad) else "  none")
+    print("\npOXA-48 transfer-region deletion (PVB variant) per mapped sample:")
+    chk = wide[wide["pOXA48_tra_region"] != "not mapped"]
+    print(chk[["sample_id", "condition", "pOXA48_copy_number", "pOXA48_tra_region",
+               "pOXA48_tra_missing_coverage", "pOXA48_expected_variant",
+               "pOXA48_variant_check"]].round(2).to_string(index=False))
+
     print("\ncandidate mutations touching an AMR locus:")
     amr = cand[cand["amr_locus"]]
     print(amr[["sample_id", "replicon", "position", "detail", "gene_name",
