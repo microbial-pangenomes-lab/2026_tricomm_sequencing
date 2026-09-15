@@ -16,3 +16,8 @@ mkdir -p out/PN23_rep1/
 
 # run breseq, using 12 cores concurrently
 parallel --jobs 12 --progress < jobs.sh
+
+# parse the breseq output, classify mutations and verify strain identity,
+python parse_gd.py
+python classify.py
+python make_tables.py

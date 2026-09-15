@@ -4,6 +4,11 @@ channels:
   - bioconda
 dependencies:
 - python
+- numpy
+- pandas
+- openpyxl
+- matplotlib
+- seaborn
 - ncbi-genome-download
 - biopython
 - breseq
