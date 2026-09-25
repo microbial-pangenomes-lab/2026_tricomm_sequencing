@@ -13,6 +13,7 @@ mkdir -p out/ancestrals
 mkdir -p out/pOXA48_rep1/
 mkdir -p out/pOXA48_rep2/
 mkdir -p out/PN23_rep1/
+mkdir -p out/PN23_rep2/
 
 # run breseq, using 12 cores concurrently
 parallel --jobs 12 --progress < jobs.sh
