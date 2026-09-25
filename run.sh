@@ -18,6 +18,14 @@ mkdir -p out/PN23_rep2/
 # run breseq, using 12 cores concurrently
 parallel --jobs 12 --progress < jobs.sh
 
+# per-base coverage of the ancestral clones (used by coverage_ancestrals.ipynb)
+mosdepth -t 1 out/ancestrals/PL1/coverage out/ancestrals/PL1/data/reference.bam
+mosdepth -t 1 out/ancestrals/PL2/coverage out/ancestrals/PL2/data/reference.bam
+mosdepth -t 1 out/ancestrals/PM1/coverage out/ancestrals/PM1/data/reference.bam
+mosdepth -t 1 out/ancestrals/PM2/coverage out/ancestrals/PM2/data/reference.bam
+mosdepth -t 1 out/ancestrals/LM1/coverage out/ancestrals/LM1/data/reference.bam
+mosdepth -t 1 out/ancestrals/LM2/coverage out/ancestrals/LM2/data/reference.bam
+
 # parse the breseq output, classify mutations and verify strain identity,
 python parse_gd.py
 python classify.py
